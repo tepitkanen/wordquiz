@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sanavisa – Finnish–English Word Quiz
 
-## Getting Started
+A small multiple-choice vocabulary quiz for practising Finnish and English words, built with Next.js and React.
 
-First, run the development server:
+**Play it live: [wordquiz-delta.vercel.app](https://wordquiz-delta.vercel.app/)**
+
+## Features
+
+- **Three difficulty levels** – Helppo (easy), Keskitaso (medium) and Vaikea (hard), 100 word pairs each
+- **Both directions** – English → Finnish or Finnish → English
+- **10-question rounds** with four answer options per question
+- **Smarter wrong answers** – distractors come from the same word class (verbs vs. other words), so you can't guess from the form alone
+- **Results screen** listing missed words with your answer and the correct one
+- **Keyboard friendly** – press `1`–`4` to answer and `Enter` to continue
+- **Accessible** – focus management, `lang` attributes for correct screen-reader pronunciation, live feedback, dark mode
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) 16 (App Router) and React 19
+- TypeScript
+- Tailwind CSS 4
+- Vitest + Testing Library
+
+## Getting started
+
+Requires Node.js 20 or newer.
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command         | Description                      |
+| --------------- | -------------------------------- |
+| `npm run dev`   | Start the development server     |
+| `npm run build` | Create a production build        |
+| `npm start`     | Serve the production build       |
+| `npm run lint`  | Run ESLint                       |
+| `npm test`      | Run the test suite (Vitest)      |
 
-## Learn More
+## Project structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/
+  Quiz.tsx        Quiz UI: start, question and result screens
+  page.tsx        Home page
+data/
+  easy.json       Word lists, one per difficulty level
+  medium.json
+  hard.json
+lib/
+  levels.ts       Difficulty levels and their word lists
+  quiz.ts         Shuffling and question/round generation
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Adding or editing words
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Word lists live in `data/*.json` as arrays of `{ "en": "...", "fi": "..." }` pairs. Verbs are written with a leading `to` (e.g. `"to run"`) so they're grouped together when picking wrong answers.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The tests in `data/data.test.ts` check that each list has exactly 100 entries, with no empty or untrimmed strings and no duplicates. Run `npm test` after editing.
