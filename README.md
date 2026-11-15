@@ -27,6 +27,8 @@ A small multiple-choice vocabulary quiz for practising Finnish and English words
 Requires Node.js 20 or newer.
 
 ```bash
+git clone https://github.com/tepitkanen/wordquiz.git
+cd wordquiz
 npm install
 npm run dev
 ```
