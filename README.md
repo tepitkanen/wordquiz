@@ -6,7 +6,8 @@ A small multiple-choice vocabulary quiz for practising Finnish and English words
 
 ## Features
 
-- **Three difficulty levels** – Helppo (easy), Keskitaso (medium) and Vaikea (hard), 100 word pairs each
+- **Three difficulty levels** – Helppo (easy), Keskitaso (medium) and Vaikea (hard), 1000 word pairs each
+- **Two special levels** – Kirjallinen (literary: poetic and old-fashioned words) and Erikoissanasto (specialist: law, medicine, finance, science and computing terms), 500 word pairs each
 - **Both directions** – English → Finnish or Finnish → English
 - **10-question rounds** with four answer options per question
 - **Smarter wrong answers** – distractors come from the same word class (verbs vs. other words), so you can't guess from the form alone
@@ -49,11 +50,13 @@ app/
   Quiz.tsx        Quiz UI: start, question and result screens
   page.tsx        Home page
 data/
-  easy.json       Word lists, one per difficulty level
+  easy.json       Word lists, one per level
   medium.json
   hard.json
+  literary.json
+  specialist.json
 lib/
-  levels.ts       Difficulty levels and their word lists
+  levels.ts       Difficulty and special levels and their word lists
   quiz.ts         Shuffling and question/round generation
 ```
 
@@ -61,4 +64,4 @@ lib/
 
 Word lists live in `data/*.json` as arrays of `{ "en": "...", "fi": "..." }` pairs. Verbs are written with a leading `to` (e.g. `"to run"`) so they're grouped together when picking wrong answers.
 
-The tests in `data/data.test.ts` check that each list has exactly 100 entries, with no empty or untrimmed strings and no duplicates. Run `npm test` after editing.
+The tests in `data/data.test.ts` check that each list has the expected number of entries (1000 for the difficulty levels, 500 for the special levels), with no empty or untrimmed strings and no duplicates, and that no English or Finnish word appears in more than one level. Run `npm test` after editing.

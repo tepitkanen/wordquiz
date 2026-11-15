@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { LEVELS, LEVEL_ORDER, type Level } from "@/lib/levels";
+import { LEVELS, LEVEL_ORDER, SPECIAL_LEVELS, type Level } from "@/lib/levels";
 import { buildRound, type Direction, type Question } from "@/lib/quiz";
 
 const ROUND_LENGTH = 10;
@@ -134,6 +134,26 @@ export default function Quiz() {
           </legend>
           <div className="flex gap-2">
             {LEVEL_ORDER.map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={level === l}
+                onClick={() => setLevel(l)}
+                lang="fi"
+                className={`${toggleBase} ${level === l ? toggleOn : toggleOff}`}
+              >
+                {LEVELS[l].label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-3 font-semibold">
+            <Bi fi="Erikoistasot" en="Special" />
+          </legend>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {SPECIAL_LEVELS.map((l) => (
               <button
                 key={l}
                 type="button"

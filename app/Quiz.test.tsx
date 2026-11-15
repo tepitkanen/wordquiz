@@ -65,7 +65,7 @@ describe("start screen", () => {
     await startQuiz();
     expect(mockedBuild).toHaveBeenCalledTimes(1);
     const [words, dir, count] = mockedBuild.mock.calls[0];
-    expect(words).toHaveLength(100);
+    expect(words).toHaveLength(1000);
     expect(dir).toBe("en-fi");
     expect(count).toBe(10);
     expect(screen.getByText("1 / 10")).toBeInTheDocument();
@@ -80,6 +80,20 @@ describe("start screen", () => {
     await user.click(screen.getByRole("button", { name: /Start/ }));
     expect(mockedBuild.mock.calls[0][1]).toBe("fi-en");
     expect(screen.getByText("Vaikea")).toBeInTheDocument();
+  });
+
+  it("offers the special levels in their own group, sharing one selection", async () => {
+    const user = userEvent.setup();
+    render(<Quiz />);
+    const group = screen.getByRole("group", { name: /Erikoistasot/ });
+    const literary = within(group).getByRole("button", { name: "Kirjallinen" });
+    expect(within(group).getByRole("button", { name: "Erikoissanasto" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(literary);
+    expect(literary).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Helppo" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: /Start/ }));
+    expect(mockedBuild.mock.calls[0][0]).toHaveLength(500);
+    expect(screen.getByText("Kirjallinen")).toBeInTheDocument();
   });
 });
 
