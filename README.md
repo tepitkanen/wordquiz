@@ -13,6 +13,8 @@ A small multiple-choice vocabulary quiz for practising Finnish and English words
 - **Smarter wrong answers** – distractors come from the same word class (verbs vs. other words), so you can't guess from the form alone
 - **Results screen** listing missed words with your answer and the correct one
 - **Keyboard friendly** – press `1`–`4` to answer and `Enter` to continue
+- **Interface in your language** – English when practising English → Finnish, Finnish the other way round
+- **Colour schemes** – blue, green or purple, remembered between visits
 - **Accessible** – focus management, `lang` attributes for correct screen-reader pronunciation, live feedback, dark mode
 
 ## Tech stack
@@ -49,8 +51,12 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ```
 app/
-  Quiz.tsx        Quiz UI: start, question and result screens
-  page.tsx        Home page
+  page.tsx                  Front page: logo and direction choice
+  quiz/[direction]/page.tsx Quiz page for /quiz/fi-en and /quiz/en-fi
+  Quiz.tsx                  Quiz UI: level, question and result screens
+  SchemePicker.tsx          Colour scheme dropdown
+  Logo.tsx, icon.svg        Logo and favicon
+  styles.ts                 Shared button and link styles
 data/
   easy.json       Word lists, one per level
   medium.json
@@ -59,7 +65,9 @@ data/
   specialist.json
 lib/
   levels.ts       Difficulty and special levels and their word lists
-  quiz.ts         Shuffling and question/round generation
+  quiz.ts         Directions, shuffling and question/round generation
+  strings.ts      Quiz interface text in Finnish and English
+  schemes.ts      Colour schemes
 ```
 
 ## Adding or editing words

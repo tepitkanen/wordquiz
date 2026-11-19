@@ -1,0 +1,46 @@
+# Sanavisa (wordquiz)
+
+@AGENTS.md
+
+Finnish–English multiple-choice word quiz. Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4, Vitest + Testing Library. Deployed on Vercel from `main`.
+
+## Commands
+- `npm run dev` – dev server (also rewrites AGENTS.md; commit that file if it changes)
+- `npm test` – Vitest (jsdom)
+- `npm run lint` – ESLint
+- `npm run build` – production build; run it after routing/config changes, because some Next errors only show here
+
+Run test + lint (+ build for routing/config changes) before calling work done.
+
+## How the app fits together
+- `/` (`app/page.tsx`) – front page: logo + two direction links. Server component.
+- `/quiz/[direction]` (`app/quiz/[direction]/page.tsx`) – `fi-en` / `en-fi`, prerendered via `generateStaticParams`; unknown values → `notFound()`.
+- `app/Quiz.tsx` – client component, a screen state machine: `start` (level choice) → `quiz` → `result`. Direction comes in as a prop.
+- `lib/quiz.ts` – `DIRECTIONS`, `DIRECTION_LABELS`, `isDirection`, round/question generation.
+- `lib/levels.ts` – levels, their word lists and bilingual labels; `data/*.json` holds the words.
+- `lib/strings.ts` – all quiz UI text. UI language follows direction: `en-fi` → English, `fi-en` → Finnish (`uiLangFor`).
+- `lib/schemes.ts` + `app/SchemePicker.tsx` – colour schemes (blue/green/purple), saved in localStorage under `sanavisa-scheme`, applied before paint by `SCHEME_INIT_SCRIPT` in `app/layout.tsx`.
+- `app/styles.ts` – shared Tailwind class strings for buttons/links; `app/Bi.tsx` – bilingual "fi / en" label.
+- `app/Logo.tsx` and `app/icon.svg` (favicon) – same artwork; keep them in sync.
+
+## Conventions
+- Accent colours: use `accent-200/300/800/900` classes, never `blue-*` etc. The values come from CSS variables in `app/globals.css` per `data-scheme`. Pair each with a `dark:` variant (800 light / 300 dark).
+- New quiz UI text goes in `lib/strings.ts` for both languages, not inline. The front page and the scheme picker stay bilingual (no direction known), via `Bi` or "fi / en" strings.
+- Tag text in the other language with `lang` (`lang="fi"` etc.) for screen readers.
+- Keep accessibility patterns: real buttons/links, focus moves to the screen heading on screen change, `aria-live` feedback.
+- Word data: `{ "en", "fi" }` pairs; verbs start with `to `. `data/data.test.ts` enforces counts (1000 per difficulty level, 500 per special level), no duplicates and no cross-level repeats.
+
+## Next.js 16 gotchas (cacheComponents + partialPrefetching are on)
+- Read the docs in `node_modules/next/dist/docs/` before using a Next API; much differs from older versions.
+- `params` is a Promise. Read it inside a `<Suspense>`-wrapped child, or dev shows the "URL data … outside of <Suspense>" error.
+- `export const dynamicParams` is not allowed; reject bad params with `notFound()`.
+- Unknown `/quiz/xx` renders the 404 page but with HTTP 200 (streamed shell). Known, accepted.
+- `next build` may print an "upgrade nudge" aimed at agents (`next upgrade --agent=…`). Don't run it; tell the user.
+
+## Testing
+- Component tests render `<Quiz direction="en-fi" />` (English UI) or `"fi-en"` (Finnish UI); `buildRound` is mocked for fixed questions.
+- `next/link` works in tests without a router mock.
+
+## Git
+- Commit directly to `main`; use a feature branch only for major changes. Push only when asked.
+- On Windows/PowerShell, write multi-line commit messages to a file and use `git commit -F <file>`.
