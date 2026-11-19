@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRound, makeQuestion, shuffle, type WordPair } from "./quiz";
+import { buildRound, isDirection, makeQuestion, shuffle, type WordPair } from "./quiz";
 
 const words: WordPair[] = Array.from({ length: 20 }, (_, i) => ({
   en: `en${i}`,
@@ -124,5 +124,18 @@ describe("buildRound", () => {
 
   it("caps at the number of words when count is larger", () => {
     expect(buildRound(words, "en-fi", 50)).toHaveLength(words.length);
+  });
+});
+
+describe("isDirection", () => {
+  it("accepts the known directions", () => {
+    expect(isDirection("fi-en")).toBe(true);
+    expect(isDirection("en-fi")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    for (const s of ["", "fi", "EN-FI", "fi-en ", "de-fi"]) {
+      expect(isDirection(s)).toBe(false);
+    }
   });
 });

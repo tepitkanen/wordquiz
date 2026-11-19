@@ -1,43 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { LEVELS, LEVEL_ORDER, SPECIAL_LEVELS, type Level } from "@/lib/levels";
-import { buildRound, type Direction, type Question } from "@/lib/quiz";
+import { buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
+import { STRINGS, uiLangFor } from "@/lib/strings";
+import { primaryBtn, secondaryBtn, textLink, toggleBase, toggleOff, toggleOn } from "./styles";
 
 const ROUND_LENGTH = 10;
-
-const DIRECTIONS: { value: Direction; label: string }[] = [
-  { value: "en-fi", label: "English → Suomi" },
-  { value: "fi-en", label: "Suomi → English" },
-];
 
 type Miss = { prompt: string; chosen: string; correct: string };
 type Screen = "start" | "quiz" | "result";
 
-/** Bilingual label: Finnish part tagged lang="fi" so screen readers pronounce it correctly. */
-function Bi({ fi, en }: { fi: string; en: string }) {
-  return (
-    <>
-      <span lang="fi">{fi}</span> / {en}
-    </>
-  );
-}
-
-const toggleBase =
-  "min-h-12 flex-1 rounded-xl border-2 px-4 py-2 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800 dark:focus-visible:outline-blue-300";
-const toggleOn =
-  "border-blue-800 bg-blue-800 text-white dark:border-blue-300 dark:bg-blue-300 dark:text-slate-900";
-const toggleOff =
-  "border-slate-300 bg-white text-slate-900 hover:border-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-blue-300";
-const primaryBtn =
-  "min-h-12 rounded-xl bg-blue-800 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800 dark:bg-blue-300 dark:text-slate-900 dark:hover:bg-blue-200 dark:focus-visible:outline-blue-300";
-const secondaryBtn =
-  "min-h-12 rounded-xl border-2 border-slate-300 bg-white px-6 py-3 font-semibold text-slate-900 transition-colors hover:border-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-blue-300 dark:focus-visible:outline-blue-300";
-
-export default function Quiz() {
+export default function Quiz({ direction }: { direction: Direction }) {
   const [screen, setScreen] = useState<Screen>("start");
   const [level, setLevel] = useState<Level>("easy");
-  const [direction, setDirection] = useState<Direction>("en-fi");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -51,6 +28,8 @@ export default function Quiz() {
   const question = questions[index];
   const promptLang = direction === "en-fi" ? "en" : "fi";
   const answerLang = direction === "en-fi" ? "fi" : "en";
+  const ui = uiLangFor(direction);
+  const t = STRINGS[ui];
 
   function start() {
     setQuestions(buildRound(LEVELS[level].words, direction, ROUND_LENGTH));
@@ -113,7 +92,7 @@ export default function Quiz() {
 
   if (screen === "start") {
     return (
-      <section className="flex flex-col gap-8">
+      <section lang={ui} className="flex flex-col gap-8">
         <header className="text-center">
           <h1
             ref={focusRef}
@@ -124,13 +103,19 @@ export default function Quiz() {
             Sanavisa
           </h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">
-            Finnish–English word quiz
+            {t.subtitle}
+          </p>
+          <p className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+            <span className="font-semibold">{DIRECTION_LABELS[direction]}</span>
+            <Link href="/" className={textLink}>
+              ← {t.back}
+            </Link>
           </p>
         </header>
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-3 font-semibold">
-            <Bi fi="Vaikeustaso" en="Difficulty" />
+            {t.difficulty}
           </legend>
           <div className="flex gap-2">
             {LEVEL_ORDER.map((l) => (
@@ -139,10 +124,9 @@ export default function Quiz() {
                 type="button"
                 aria-pressed={level === l}
                 onClick={() => setLevel(l)}
-                lang="fi"
                 className={`${toggleBase} ${level === l ? toggleOn : toggleOff}`}
               >
-                {LEVELS[l].label}
+                {LEVELS[l].label[ui]}
               </button>
             ))}
           </div>
@@ -150,7 +134,7 @@ export default function Quiz() {
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-3 font-semibold">
-            <Bi fi="Erikoistasot" en="Special" />
+            {t.special}
           </legend>
           <div className="flex flex-col gap-2 sm:flex-row">
             {SPECIAL_LEVELS.map((l) => (
@@ -159,36 +143,16 @@ export default function Quiz() {
                 type="button"
                 aria-pressed={level === l}
                 onClick={() => setLevel(l)}
-                lang="fi"
                 className={`${toggleBase} ${level === l ? toggleOn : toggleOff}`}
               >
-                {LEVELS[l].label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-3 font-semibold">
-            <Bi fi="Suunta" en="Direction" />
-          </legend>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {DIRECTIONS.map((d) => (
-              <button
-                key={d.value}
-                type="button"
-                aria-pressed={direction === d.value}
-                onClick={() => setDirection(d.value)}
-                className={`${toggleBase} ${direction === d.value ? toggleOn : toggleOff}`}
-              >
-                {d.label}
+                {LEVELS[l].label[ui]}
               </button>
             ))}
           </div>
         </fieldset>
 
         <button type="button" onClick={start} className={primaryBtn}>
-          <Bi fi="Aloita" en="Start" />
+          {t.start}
         </button>
       </section>
     );
@@ -196,14 +160,14 @@ export default function Quiz() {
 
   if (screen === "result") {
     return (
-      <section className="flex flex-col gap-8 text-center">
+      <section lang={ui} className="flex flex-col gap-8 text-center">
         <div>
           <h1
             ref={focusRef}
             tabIndex={-1}
             className="text-slate-600 outline-none dark:text-slate-400"
           >
-            <Bi fi="Tulos" en="Score" />
+            {t.score}
           </h1>
           <p className="text-6xl font-bold text-blue-800 dark:text-blue-300">
             {score} / {questions.length}
@@ -213,7 +177,7 @@ export default function Quiz() {
         {missed.length > 0 ? (
           <div className="text-left">
             <h2 className="mb-3 font-semibold">
-              <Bi fi="Väärät vastaukset" en="Missed words" />
+              {t.missedWords}
             </h2>
             <ul className="flex flex-col gap-2">
               {missed.map((m) => (
@@ -242,20 +206,20 @@ export default function Quiz() {
           </div>
         ) : (
           <p className="text-lg font-medium text-green-700 dark:text-green-400">
-            ✓ <Bi fi="Kaikki oikein!" en="All correct!" />
+            ✓ {t.allCorrect}
           </p>
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
           <button type="button" onClick={start} className={primaryBtn}>
-            <Bi fi="Pelaa uudelleen" en="Play again" />
+            {t.playAgain}
           </button>
           <button
             type="button"
             onClick={() => setScreen("start")}
             className={secondaryBtn}
           >
-            <Bi fi="Vaihda asetuksia" en="Change settings" />
+            {t.changeSettings}
           </button>
         </div>
       </section>
@@ -267,18 +231,24 @@ export default function Quiz() {
   const progress = ((index + (answered ? 1 : 0)) / questions.length) * 100;
 
   return (
-    <section className="flex flex-col gap-8">
+    <section lang={ui} className="flex flex-col gap-8">
       <div>
-        <div className="mb-2 flex justify-between text-sm text-slate-600 dark:text-slate-400">
+        <div className="mb-2 flex items-center justify-between gap-4 text-sm text-slate-600 dark:text-slate-400">
           <span>
-            {index + 1} / {questions.length}
+            {index + 1} / {questions.length} · {LEVELS[level].label[ui]}
           </span>
-          <span lang="fi">{LEVELS[level].label}</span>
+          <button
+            type="button"
+            onClick={() => setScreen("start")}
+            className={secondaryBtn}
+          >
+            {t.quit}
+          </button>
         </div>
         <div
           className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
           role="progressbar"
-          aria-label="Edistyminen / Progress"
+          aria-label={t.progress}
           aria-valuemin={0}
           aria-valuemax={questions.length}
           aria-valuenow={index + (answered ? 1 : 0)}
@@ -341,22 +311,18 @@ export default function Quiz() {
           {answered &&
             (wasCorrect ? (
               <span className="text-green-700 dark:text-green-400">
-                ✓ <Bi fi="Oikein!" en="Correct!" />
+                ✓ {t.correct}
               </span>
             ) : (
               <span className="text-red-700 dark:text-red-400">
-                ✗ <Bi fi="Oikea vastaus" en="Correct answer" />:{" "}
+                ✗ {t.correctAnswer}:{" "}
                 <span lang={answerLang}>{question.correct}</span>
               </span>
             ))}
         </p>
         {answered && (
           <button ref={nextRef} type="button" onClick={next} className={primaryBtn}>
-            {index + 1 >= questions.length ? (
-              <Bi fi="Tulos" en="Results" />
-            ) : (
-              <Bi fi="Seuraava" en="Next" />
-            )}
+            {index + 1 >= questions.length ? t.results : t.next}
           </button>
         )}
       </div>

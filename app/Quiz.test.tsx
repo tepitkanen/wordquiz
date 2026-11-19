@@ -7,7 +7,7 @@ vi.mock("@/lib/quiz", async (importOriginal) => {
   return { ...actual, buildRound: vi.fn() };
 });
 
-import { buildRound } from "@/lib/quiz";
+import { buildRound, type Direction } from "@/lib/quiz";
 import Quiz from "./Quiz";
 
 // Question i: prompt "p{i}", fixed option order, correct answer is option 1.
@@ -28,10 +28,10 @@ beforeEach(() => {
 
 type User = ReturnType<typeof userEvent.setup>;
 
-async function startQuiz() {
+async function startQuiz(direction: Direction = "en-fi") {
   const user = userEvent.setup();
-  render(<Quiz />);
-  await user.click(screen.getByRole("button", { name: /Start/ }));
+  render(<Quiz direction={direction} />);
+  await user.click(screen.getByRole("button", { name: direction === "en-fi" ? "Start" : "Aloita" }));
   return user;
 }
 
@@ -52,13 +52,48 @@ async function playRound(user: User, wrongAt: number[]) {
 }
 
 describe("start screen", () => {
-  it("has easy and en-fi selected by default", () => {
-    render(<Quiz />);
-    expect(screen.getByRole("button", { name: "Helppo" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Keskitaso" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "Vaikea" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /English → Suomi/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /Suomi → English/ })).toHaveAttribute("aria-pressed", "false");
+  it("has easy selected by default", () => {
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByRole("button", { name: "Easy" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Medium" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Hard" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("shows the chosen direction and a link back to the front page", () => {
+    render(<Quiz direction="fi-en" />);
+    expect(screen.getByText("Suomi → English")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Takaisin/ })).toHaveAttribute("href", "/");
+  });
+
+  it("uses an English interface for English → Suomi", () => {
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByRole("group", { name: "Difficulty" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Aloita|Vaikeustaso/)).not.toBeInTheDocument();
+  });
+
+  it("uses a Finnish interface for Suomi → English, through a whole round", async () => {
+    const user = await startQuiz("fi-en");
+    await user.keyboard("2");
+    expect(feedback()).toHaveTextContent("Oikea vastaus: c0");
+    await user.click(screen.getByRole("button", { name: "Seuraava" }));
+    for (let i = 1; i < 10; i++) {
+      await user.keyboard("1");
+      await user.click(screen.getByRole("button", { name: i === 9 ? "Tulokset" : "Seuraava" }));
+    }
+    expect(screen.getByRole("heading", { name: "Tulos" })).toBeInTheDocument();
+    expect(screen.getByText("Väärät vastaukset")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pelaa uudelleen" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vaihda asetuksia" })).toBeInTheDocument();
+    expect(screen.queryByText(/Results|Play again|Missed words/)).not.toBeInTheDocument();
+  });
+
+  it("has no direction toggle on the level screen", () => {
+    render(<Quiz direction="en-fi" />);
+    expect(
+      screen.queryByRole("button", { name: /English → Suomi|Suomi → English/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("starts a 10-question round with the default settings", async () => {
@@ -68,32 +103,31 @@ describe("start screen", () => {
     expect(words).toHaveLength(1000);
     expect(dir).toBe("en-fi");
     expect(count).toBe(10);
-    expect(screen.getByText("1 / 10")).toBeInTheDocument();
+    expect(screen.getByText("1 / 10 · Easy")).toBeInTheDocument();
     expect(screen.getByText("p0")).toBeInTheDocument();
   });
 
   it("passes the chosen direction and level", async () => {
     const user = userEvent.setup();
-    render(<Quiz />);
+    render(<Quiz direction="fi-en" />);
     await user.click(screen.getByRole("button", { name: "Vaikea" }));
-    await user.click(screen.getByRole("button", { name: /Suomi → English/ }));
-    await user.click(screen.getByRole("button", { name: /Start/ }));
+    await user.click(screen.getByRole("button", { name: /Aloita/ }));
     expect(mockedBuild.mock.calls[0][1]).toBe("fi-en");
-    expect(screen.getByText("Vaikea")).toBeInTheDocument();
+    expect(screen.getByText("1 / 10 · Vaikea")).toBeInTheDocument();
   });
 
   it("offers the special levels in their own group, sharing one selection", async () => {
     const user = userEvent.setup();
-    render(<Quiz />);
-    const group = screen.getByRole("group", { name: /Erikoistasot/ });
-    const literary = within(group).getByRole("button", { name: "Kirjallinen" });
-    expect(within(group).getByRole("button", { name: "Erikoissanasto" })).toHaveAttribute("aria-pressed", "false");
+    render(<Quiz direction="en-fi" />);
+    const group = screen.getByRole("group", { name: /Special/ });
+    const literary = within(group).getByRole("button", { name: "Literary" });
+    expect(within(group).getByRole("button", { name: "Specialist" })).toHaveAttribute("aria-pressed", "false");
     await user.click(literary);
     expect(literary).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Helppo" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Easy" })).toHaveAttribute("aria-pressed", "false");
     await user.click(screen.getByRole("button", { name: /Start/ }));
     expect(mockedBuild.mock.calls[0][0]).toHaveLength(500);
-    expect(screen.getByText("Kirjallinen")).toBeInTheDocument();
+    expect(screen.getByText("1 / 10 · Literary")).toBeInTheDocument();
   });
 });
 
@@ -101,7 +135,7 @@ describe("question screen", () => {
   it("correct answer shows check and feedback and focuses Next", async () => {
     const user = await startQuiz();
     await user.click(optionBtn("c0"));
-    expect(feedback()).toHaveTextContent("Oikein! / Correct!");
+    expect(feedback()).toHaveTextContent("Correct!");
     expect(optionBtn("c0")).toHaveTextContent("✓");
     expect(screen.getByRole("button", { name: /Next/ })).toHaveFocus();
   });
@@ -158,11 +192,33 @@ describe("question screen", () => {
     expect(screen.queryByRole("button", { name: /Next/ })).not.toBeInTheDocument();
   });
 
+  it("Quit returns to the level screen with the settings kept", async () => {
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(screen.getByRole("button", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Start" }));
+    await user.keyboard("1");
+    await user.click(screen.getByRole("button", { name: "Quit" }));
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hard" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("heading", { name: "Sanavisa" })).toHaveFocus();
+    // Starting again begins a fresh round.
+    await user.click(screen.getByRole("button", { name: "Start" }));
+    expect(mockedBuild).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("1 / 10 · Hard")).toBeInTheDocument();
+    expect(optionBtn("c0")).toBeEnabled();
+  });
+
+  it("Quit is labelled Lopeta in the Finnish interface", async () => {
+    await startQuiz("fi-en");
+    expect(screen.getByRole("button", { name: "Lopeta" })).toBeInTheDocument();
+  });
+
   it("Next advances and re-enables options", async () => {
     const user = await startQuiz();
     await user.keyboard("1");
     await user.click(screen.getByRole("button", { name: /Next/ }));
-    expect(screen.getByText("2 / 10")).toBeInTheDocument();
+    expect(screen.getByText(/^2 \/ 10/)).toBeInTheDocument();
     expect(screen.getByText("p1")).toBeInTheDocument();
     expect(optionBtn("c1")).toBeEnabled();
   });
@@ -191,16 +247,15 @@ describe("result screen", () => {
 
   it("Play again resets the round with the same settings", async () => {
     const user = userEvent.setup();
-    render(<Quiz />);
-    await user.click(screen.getByRole("button", { name: "Keskitaso" }));
-    await user.click(screen.getByRole("button", { name: /Suomi → English/ }));
+    render(<Quiz direction="en-fi" />);
+    await user.click(screen.getByRole("button", { name: "Medium" }));
     await user.click(screen.getByRole("button", { name: /Start/ }));
     await playRound(user, [0, 1, 2]);
     await user.click(screen.getByRole("button", { name: /Play again/ }));
     expect(mockedBuild).toHaveBeenCalledTimes(2);
-    expect(mockedBuild.mock.calls[1][1]).toBe("fi-en");
+    expect(mockedBuild.mock.calls[1][1]).toBe("en-fi");
     expect(mockedBuild.mock.calls[1][0]).toBe(mockedBuild.mock.calls[0][0]);
-    expect(screen.getByText("1 / 10")).toBeInTheDocument();
+    expect(screen.getByText(/^1 \/ 10/)).toBeInTheDocument();
     expect(optionBtn("c0")).toBeEnabled();
     // A perfect second round must not carry over score or missed words.
     await playRound(user, []);
@@ -213,6 +268,6 @@ describe("result screen", () => {
     await playRound(user, []);
     await user.click(screen.getByRole("button", { name: /Change settings/ }));
     expect(screen.getByRole("button", { name: /Start/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Helppo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Easy" })).toBeInTheDocument();
   });
 });

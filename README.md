@@ -8,7 +8,7 @@ A small multiple-choice vocabulary quiz for practising Finnish and English words
 
 - **Three difficulty levels** – Helppo (easy), Keskitaso (medium) and Vaikea (hard), 1000 word pairs each
 - **Two special levels** – Kirjallinen (literary: poetic and old-fashioned words) and Erikoissanasto (specialist: law, medicine, finance, science and computing terms), 500 word pairs each
-- **Both directions** – English → Finnish or Finnish → English
+- **Both directions** – choose Finnish → English or English → Finnish on the front page
 - **10-question rounds** with four answer options per question
 - **Smarter wrong answers** – distractors come from the same word class (verbs vs. other words), so you can't guess from the form alone
 - **Results screen** listing missed words with your answer and the correct one

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -14 96 96">
+  <!-- Same artwork as app/Logo.tsx, in a square box for the browser tab. -->
+  <style>
+    .blue { fill: #1e40af; }
+    .on-blue { fill: #ffffff; }
+    .front { fill: #ffffff; stroke: #1e40af; }
+    text { font-family: system-ui, "Segoe UI", sans-serif; font-weight: 700; font-size: 19px; text-anchor: middle; }
+    @media (prefers-color-scheme: dark) {
+      .blue { fill: #93c5fd; }
+      .on-blue { fill: #0f172a; }
+      .front { fill: #0f172a; stroke: #93c5fd; }
+    }
+  </style>
+  <path class="blue" d="M14,4 H48 Q58,4 58,14 V30 Q58,40 48,40 H24 L13,49 L16,40 H14 Q4,40 4,30 V14 Q4,4 14,4 Z"/>
+  <text class="on-blue" x="26" y="29">Eng</text>
+  <path class="front" stroke-width="3" stroke-linejoin="round" d="M58,20 H82 Q92,20 92,30 V46 Q92,56 82,56 L86,63 L74,56 H58 Q48,56 48,46 V30 Q48,20 58,20 Z"/>
+  <text class="blue" x="70" y="46">Fi</text>
+</svg>

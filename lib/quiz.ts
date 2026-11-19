@@ -1,5 +1,17 @@
 export type WordPair = { en: string; fi: string };
-export type Direction = "en-fi" | "fi-en";
+/** Quiz directions, in the order they appear on the front page. */
+export const DIRECTIONS = ["fi-en", "en-fi"] as const;
+export type Direction = (typeof DIRECTIONS)[number];
+
+export const DIRECTION_LABELS: Record<Direction, string> = {
+  "fi-en": "Suomi → English",
+  "en-fi": "English → Suomi",
+};
+
+/** True if a string from the URL is a known direction. */
+export function isDirection(s: string): s is Direction {
+  return (DIRECTIONS as readonly string[]).includes(s);
+}
 
 export type Question = {
   prompt: string;
