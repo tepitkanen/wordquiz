@@ -169,7 +169,7 @@ export default function Quiz({ direction }: { direction: Direction }) {
           >
             {t.score}
           </h1>
-          <p className="text-6xl font-bold text-blue-800 dark:text-blue-300">
+          <p className="text-6xl font-bold text-accent-800 dark:text-accent-300">
             {score} / {questions.length}
           </p>
         </div>
@@ -254,7 +254,7 @@ export default function Quiz({ direction }: { direction: Direction }) {
           aria-valuenow={index + (answered ? 1 : 0)}
         >
           <div
-            className="h-full bg-blue-800 transition-all dark:bg-blue-300"
+            className="h-full bg-accent-800 transition-all dark:bg-accent-300"
             style={{ width: `${progress}%` }}
           />
         </div>

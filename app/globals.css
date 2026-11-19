@@ -3,11 +3,37 @@
 :root {
   --background: #f8fafc; /* slate-50 */
   --foreground: #0f172a; /* slate-900 */
+
+  /* Accent colour, blue scheme (default). 800/900: light mode, 300/200: dark mode. */
+  --accent-200: #bfdbfe;
+  --accent-300: #93c5fd;
+  --accent-800: #1e40af;
+  --accent-900: #1e3a8a;
+}
+
+/* Green scheme: emerald, kept apart from the green "correct" feedback. */
+:root[data-scheme="green"] {
+  --accent-200: #a7f3d0;
+  --accent-300: #6ee7b7;
+  --accent-800: #047857;
+  --accent-900: #065f46;
+}
+
+/* Purple scheme: violet. */
+:root[data-scheme="purple"] {
+  --accent-200: #ddd6fe;
+  --accent-300: #c4b5fd;
+  --accent-800: #6d28d9;
+  --accent-900: #5b21b6;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
