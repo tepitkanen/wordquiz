@@ -1,4 +1,7 @@
-export type WordPair = { en: string; fi: string };
+import type { Field } from "./levels";
+
+/** A word and its translation. Specialist words also name their field. */
+export type WordPair = { en: string; fi: string; field?: Field };
 /** Quiz directions, in the order they appear on the front page. */
 export const DIRECTIONS = ["fi-en", "en-fi"] as const;
 export type Direction = (typeof DIRECTIONS)[number];
@@ -17,6 +20,8 @@ export type Question = {
   prompt: string;
   correct: string;
   options: string[];
+  /** The word's field (Specialist only), shown as a hint. */
+  field?: Field;
 };
 
 const OPTION_COUNT = 4;
@@ -36,7 +41,8 @@ const isVerb = (w: WordPair) => w.en.startsWith("to ");
 /**
  * Builds a question for words[index]: the correct answer plus 3 wrong ones from other pairs.
  * Wrong options come from the same word class (verb / non-verb) when possible,
- * so the class alone doesn't give the answer away.
+ * so the class alone doesn't give the answer away. Words with a field draw their
+ * wrong options from the same field first (same class, then other class).
  */
 export function makeQuestion(
   words: readonly WordPair[],
@@ -47,15 +53,22 @@ export function makeQuestion(
   const to = direction === "en-fi" ? "fi" : "en";
   const pair = words[index];
   const others = words.filter((_, i) => i !== index);
-  const sameClass = others.filter((w) => isVerb(w) === isVerb(pair));
-  const otherClass = others.filter((w) => isVerb(w) !== isVerb(pair));
-  const wrong = [...shuffle(sameClass), ...shuffle(otherClass)]
-    .slice(0, OPTION_COUNT - 1)
-    .map((w) => w[to]);
+  const byClass = (list: readonly WordPair[]) => [
+    ...shuffle(list.filter((w) => isVerb(w) === isVerb(pair))),
+    ...shuffle(list.filter((w) => isVerb(w) !== isVerb(pair))),
+  ];
+  const pool = pair.field
+    ? [
+        ...byClass(others.filter((w) => w.field === pair.field)),
+        ...byClass(others.filter((w) => w.field !== pair.field)),
+      ]
+    : byClass(others);
+  const wrong = pool.slice(0, OPTION_COUNT - 1).map((w) => w[to]);
   return {
     prompt: pair[from],
     correct: pair[to],
     options: shuffle([pair[to], ...wrong]),
+    ...(pair.field ? { field: pair.field } : {}),
   };
 }
 

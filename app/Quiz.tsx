@@ -2,9 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { LEVELS, LEVEL_ORDER, SPECIAL_LEVELS, type Level } from "@/lib/levels";
 import { saveRound } from "@/app/actions/progress";
 import { authClient } from "@/lib/auth-client";
+import {
+  DIFFICULTIES,
+  DIFFICULTY_LABELS,
+  FIELD_LABELS,
+  LEVELS,
+  levelFor,
+  parseLevel,
+  TOPIC_LABELS,
+  TOPICS,
+  type Difficulty,
+  type Topic,
+} from "@/lib/levels";
 import { toPair, type Answer } from "@/lib/progress";
 import { buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
 import { BEFORE_SIGN_IN_EVENT, stashRound, takeStashedRound, type Miss } from "@/lib/resume";
@@ -17,7 +28,9 @@ type Screen = "start" | "quiz" | "result";
 
 export default function Quiz({ direction }: { direction: Direction }) {
   const [screen, setScreen] = useState<Screen>("start");
-  const [level, setLevel] = useState<Level>("easy");
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  // No topic = the general word list for the chosen difficulty.
+  const [topic, setTopic] = useState<Topic | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -37,6 +50,7 @@ export default function Quiz({ direction }: { direction: Direction }) {
   const answerLang = direction === "en-fi" ? "fi" : "en";
   const ui = uiLangFor(direction);
   const t = STRINGS[ui];
+  const level = levelFor(difficulty, topic);
 
   function start() {
     setQuestions(buildRound(LEVELS[level].words, direction, ROUND_LENGTH));
@@ -114,8 +128,10 @@ export default function Quiz({ direction }: { direction: Direction }) {
     if (!saved) return;
     // sessionStorage exists only in the browser, so this can't happen during the
     // prerender or in a useState initializer (hydration would mismatch). Runs once.
+    const restored = parseLevel(saved.level);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLevel(saved.level);
+    setDifficulty(restored.difficulty);
+    setTopic(restored.topic);
     setQuestions(saved.questions);
     setIndex(saved.index);
     setSelected(saved.selected);
@@ -177,15 +193,15 @@ export default function Quiz({ direction }: { direction: Direction }) {
             {t.difficulty}
           </legend>
           <div className="flex gap-2">
-            {LEVEL_ORDER.map((l) => (
+            {DIFFICULTIES.map((d) => (
               <button
-                key={l}
+                key={d}
                 type="button"
-                aria-pressed={level === l}
-                onClick={() => setLevel(l)}
-                className={`${toggleBase} ${level === l ? toggleOn : toggleOff}`}
+                aria-pressed={difficulty === d}
+                onClick={() => setDifficulty(d)}
+                className={`${toggleBase} ${difficulty === d ? toggleOn : toggleOff}`}
               >
-                {LEVELS[l].label[ui]}
+                {DIFFICULTY_LABELS[d][ui]}
               </button>
             ))}
           </div>
@@ -193,26 +209,34 @@ export default function Quiz({ direction }: { direction: Direction }) {
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-3 font-semibold">
-            {t.special}
+            {t.topic}
           </legend>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {SPECIAL_LEVELS.map((l) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {[null, ...TOPICS].map((tp) => (
               <button
-                key={l}
+                key={tp ?? "none"}
                 type="button"
-                aria-pressed={level === l}
-                onClick={() => setLevel(l)}
-                className={`${toggleBase} ${level === l ? toggleOn : toggleOff}`}
+                aria-pressed={topic === tp}
+                onClick={() => setTopic(tp)}
+                className={`${toggleBase} ${topic === tp ? toggleOn : toggleOff}`}
               >
-                {LEVELS[l].label[ui]}
+                {tp ? TOPIC_LABELS[tp][ui] : t.noTopic}
               </button>
             ))}
           </div>
         </fieldset>
 
-        <button type="button" onClick={start} className={primaryBtn}>
-          {t.start}
-        </button>
+        <div className="flex flex-col gap-3">
+          <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+            {t.wordList}:{" "}
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              {LEVELS[level].label[ui]}
+            </span>
+          </p>
+          <button type="button" onClick={start} className={primaryBtn}>
+            {t.start}
+          </button>
+        </div>
       </section>
     );
   }
@@ -326,6 +350,16 @@ export default function Quiz({ direction }: { direction: Direction }) {
         className="text-center text-4xl font-bold break-words outline-none"
       >
         {question.prompt}
+        {/* Inside the heading so screen readers hear the field with the word. */}
+        {question.field && (
+          <span
+            lang={ui}
+            className="mt-2 block text-sm font-medium tracking-wide text-slate-600 uppercase dark:text-slate-400"
+          >
+            <span className="sr-only">{` ${t.field}: `}</span>
+            {FIELD_LABELS[question.field][ui]}
+          </span>
+        )}
       </h1>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

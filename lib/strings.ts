@@ -12,7 +12,10 @@ type Strings = {
   subtitle: string;
   back: string;
   difficulty: string;
-  special: string;
+  topic: string;
+  noTopic: string;
+  wordList: string;
+  field: string;
   start: string;
   quit: string;
   progress: string;
@@ -32,7 +35,10 @@ export const STRINGS: Record<UiLang, Strings> = {
     subtitle: "Suomi–englanti-sanavisa",
     back: "Takaisin",
     difficulty: "Vaikeustaso",
-    special: "Erikoistasot",
+    topic: "Aihe",
+    noTopic: "Ei aihetta",
+    wordList: "Sanasto",
+    field: "Ala",
     start: "Aloita",
     quit: "Lopeta",
     progress: "Edistyminen",
@@ -50,7 +56,10 @@ export const STRINGS: Record<UiLang, Strings> = {
     subtitle: "Finnish–English word quiz",
     back: "Back",
     difficulty: "Difficulty",
-    special: "Special",
+    topic: "Topic",
+    noTopic: "None",
+    wordList: "Words",
+    field: "Field",
     start: "Start",
     quit: "Quit",
     progress: "Progress",
