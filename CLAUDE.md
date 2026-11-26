@@ -17,7 +17,7 @@ Run test + lint (+ build for routing/config changes) before calling work done.
 - `/quiz/[direction]` (`app/quiz/[direction]/page.tsx`) – `fi-en` / `en-fi`, prerendered via `generateStaticParams`; unknown values → `notFound()`.
 - `app/Quiz.tsx` – client component, a screen state machine: `start` (level choice) → `quiz` → `result`. Direction comes in as a prop.
 - `lib/quiz.ts` – `DIRECTIONS`, `DIRECTION_LABELS`, `isDirection`, round/question generation.
-- `lib/levels.ts` – levels, their word lists and bilingual labels; `data/*.json` holds the words.
+- `lib/levels.ts` – `DIFFICULTIES`, `TOPICS`, `FIELDS` and their bilingual labels. A `Level` key is a difficulty (`"easy"`) or topic-difficulty (`"food-medium"`); `levelFor`/`parseLevel` convert, `LEVELS[level]` gives label + words. The start screen picks a difficulty and an optional topic (None = general list).
 - `lib/strings.ts` – all quiz UI text. UI language follows direction: `en-fi` → English, `fi-en` → Finnish (`uiLangFor`).
 - `lib/schemes.ts` + `app/SchemePicker.tsx` – colour schemes (blue/green/purple), saved in localStorage under `sanavisa-scheme`, applied before paint by `SCHEME_INIT_SCRIPT` in `app/layout.tsx`.
 - `app/styles.ts` – shared Tailwind class strings for buttons/links; `app/Bi.tsx` – bilingual "fi / en" label.
@@ -28,7 +28,7 @@ Run test + lint (+ build for routing/config changes) before calling work done.
 - New quiz UI text goes in `lib/strings.ts` for both languages, not inline. The front page and the scheme picker stay bilingual (no direction known), via `Bi` or "fi / en" strings.
 - Tag text in the other language with `lang` (`lang="fi"` etc.) for screen readers.
 - Keep accessibility patterns: real buttons/links, focus moves to the screen heading on screen change, `aria-live` feedback.
-- Word data: `{ "en", "fi" }` pairs; verbs start with `to `. `data/data.test.ts` enforces counts (1000 per difficulty level, 500 per special level), no duplicates and no cross-level repeats.
+- Word data: `{ "en", "fi" }` pairs; verbs start with `to `. General lists in `data/{easy,medium,hard}.json`; topics in `data/topics/<topic>.json` as `{ easy, medium, hard }`. Specialist words carry `field` (wrong options come from the same field, see `makeQuestion`). Brackets for disambiguation go in `en` only. `data/data.test.ts` enforces counts (1000 per general level, 300 per topic tier, 500 per Specialist tier = 100 per field), ≥40 verbs and non-verbs per list, no duplicates and no cross-list repeats.
 
 ## Next.js 16 gotchas (cacheComponents + partialPrefetching are on)
 - Read the docs in `node_modules/next/dist/docs/` before using a Next API; much differs from older versions.

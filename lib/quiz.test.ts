@@ -139,3 +139,43 @@ describe("isDirection", () => {
     }
   });
 });
+
+describe("makeQuestion with fields", () => {
+  // 6 law words and 6 medicine words; half of each are verbs.
+  const fielded: WordPair[] = [
+    ...Array.from({ length: 6 }, (_, i) => ({
+      en: i < 3 ? `to law${i}` : `law${i}`,
+      fi: `laki${i}`,
+      field: "law" as const,
+    })),
+    ...Array.from({ length: 6 }, (_, i) => ({
+      en: i < 3 ? `to med${i}` : `med${i}`,
+      fi: `lääke${i}`,
+      field: "medicine" as const,
+    })),
+  ];
+
+  it("takes all wrong options from the word's own field", () => {
+    for (let run = 0; run < 30; run++) {
+      const q = makeQuestion(fielded, 4, "en-fi");
+      expect(q.options.every((o) => o.startsWith("laki"))).toBe(true);
+    }
+  });
+
+  it("copies the field onto the question", () => {
+    expect(makeQuestion(fielded, 7, "en-fi").field).toBe("medicine");
+    expect(makeQuestion(words, 0, "en-fi").field).toBeUndefined();
+  });
+
+  it("fills up from other fields when a field is too small", () => {
+    const small: WordPair[] = [
+      { en: "a", fi: "a1", field: "law" },
+      { en: "b", fi: "b1", field: "law" },
+      ...Array.from({ length: 5 }, (_, i) => ({ en: `m${i}`, fi: `m${i}fi`, field: "medicine" as const })),
+    ];
+    const q = makeQuestion(small, 0, "en-fi");
+    expect(q.options).toHaveLength(4);
+    expect(q.options).toContain("b1");
+    expect(q.options.filter((o) => o.startsWith("m"))).toHaveLength(2);
+  });
+});

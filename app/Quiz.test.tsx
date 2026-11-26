@@ -116,18 +116,72 @@ describe("start screen", () => {
     expect(screen.getByText("1 / 10 · Vaikea")).toBeInTheDocument();
   });
 
-  it("offers the special levels in their own group, sharing one selection", async () => {
+  it("has no topic selected by default and uses the general list", async () => {
     const user = userEvent.setup();
     render(<Quiz direction="en-fi" />);
-    const group = screen.getByRole("group", { name: /Special/ });
-    const literary = within(group).getByRole("button", { name: "Literary" });
-    expect(within(group).getByRole("button", { name: "Specialist" })).toHaveAttribute("aria-pressed", "false");
-    await user.click(literary);
-    expect(literary).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Easy" })).toHaveAttribute("aria-pressed", "false");
+    const group = screen.getByRole("group", { name: "Topic" });
+    expect(within(group).getByRole("button", { name: "None" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Words:").parentElement).toHaveTextContent("Words: Easy");
+    await user.click(screen.getByRole("button", { name: /Start/ }));
+    expect(mockedBuild.mock.calls[0][0]).toHaveLength(1000);
+  });
+
+  it("combines a topic with the chosen difficulty", async () => {
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(screen.getByRole("button", { name: "Medium" }));
+    await user.click(screen.getByRole("button", { name: "Literary" }));
+    expect(screen.getByRole("button", { name: "Literary" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Medium" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Words:").parentElement).toHaveTextContent("Words: Literary · Medium");
+    await user.click(screen.getByRole("button", { name: /Start/ }));
+    expect(mockedBuild.mock.calls[0][0]).toHaveLength(300);
+    expect(screen.getByText("1 / 10 · Literary · Medium")).toBeInTheDocument();
+  });
+
+  it("falls back to the general list when the topic is set back to None", async () => {
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(screen.getByRole("button", { name: "Hard" }));
+    await user.click(screen.getByRole("button", { name: "Food" }));
+    await user.click(screen.getByRole("button", { name: "None" }));
+    await user.click(screen.getByRole("button", { name: /Start/ }));
+    expect(mockedBuild.mock.calls[0][0]).toHaveLength(1000);
+    expect(screen.getByText("1 / 10 · Hard")).toBeInTheDocument();
+  });
+
+  it("uses the 500-word Specialist tiers", async () => {
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(screen.getByRole("button", { name: "Specialist" }));
     await user.click(screen.getByRole("button", { name: /Start/ }));
     expect(mockedBuild.mock.calls[0][0]).toHaveLength(500);
-    expect(screen.getByText("1 / 10 · Literary")).toBeInTheDocument();
+  });
+
+  it("shows Finnish topic labels for fi-en", () => {
+    render(<Quiz direction="fi-en" />);
+    const group = screen.getByRole("group", { name: "Aihe" });
+    const labels = within(group).getAllByRole("button").map((b) => b.textContent);
+    expect(labels).toEqual(["Ei aihetta", "Tarinat", "Erikoissanasto", "Matkailu", "Ruoka", "Urheilu"]);
+  });
+});
+
+describe("field label", () => {
+  it("shows a Specialist word's field under the word, as part of the heading", async () => {
+    mockedBuild.mockImplementation(() =>
+      fixedRound().map((q) => ({ ...q, field: "law" as const })),
+    );
+    await startQuiz("en-fi");
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent("p0");
+    expect(heading).toHaveTextContent("Law");
+    // jsdom trims spaces between the parts; browsers keep them.
+    expect(heading).toHaveAccessibleName(/^p0s*Field:s*Law$/);
+  });
+
+  it("shows no field label for other words", async () => {
+    await startQuiz("en-fi");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveAccessibleName("p0");
   });
 });
 
