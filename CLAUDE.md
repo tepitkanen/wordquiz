@@ -22,6 +22,9 @@ Run test + lint (+ build for routing/config changes) before calling work done.
 - `lib/schemes.ts` + `app/SchemePicker.tsx` – colour schemes (blue/green/purple), saved in localStorage under `sanavisa-scheme`, applied before paint by `SCHEME_INIT_SCRIPT` in `app/layout.tsx`.
 - `app/styles.ts` – shared Tailwind class strings for buttons/links; `app/Bi.tsx` – bilingual "fi / en" label.
 - `app/Logo.tsx` and `app/icon.svg` (favicon) – same artwork; keep them in sync.
+- Accounts: Better Auth with Google only (`lib/auth.ts`, client `lib/auth-client.ts`, endpoints `app/api/auth/[...all]/route.ts`). `app/AccountMenu.tsx` in the layout header reads the session on the client (`useSession`), so pages stay static. Guests play without signing in.
+- Database: Neon Postgres via Drizzle (`lib/db/`, HTTP driver: no interactive transactions, use `db.batch()`). Words stay in `data/*.json`; the DB will reference them by `en`+`fi`. Schema changes: edit `lib/db/schema.ts`, `npm run db:generate`, commit `drizzle/`, `npm run db:migrate`.
+- Env vars live in `.env.local` (`vercel env pull .env.local`): `DATABASE_URL(_UNPOOLED)`, `GOOGLE_CLIENT_ID/SECRET`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`. Never print their values.
 
 ## Conventions
 - Accent colours: use `accent-200/300/800/900` classes, never `blue-*` etc. The values come from CSS variables in `app/globals.css` per `data-scheme`. Pair each with a `dark:` variant (800 light / 300 dark).
