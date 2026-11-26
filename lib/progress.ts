@@ -1,14 +1,20 @@
 import { LEVELS, type Level } from "./levels";
 import { DIRECTIONS, type Direction, type Question, type WordPair } from "./quiz";
 
-// Pure progress logic, shared by the quiz (client) and the saveRound action (server).
+// Pure progress logic, shared by the quiz (client) and the progress actions (server).
 
 /** A missed word leaves the review list after this many correct answers in a row. */
 export const STREAK_TO_CLEAR = 2;
 const MAX_ANSWERS = 10;
 
+/** A review round mixes words from several levels; each word keeps its own level. */
+export const REVIEW = "review";
+export type RoundLevel = Level | typeof REVIEW;
+
 export type Answer = WordPair & { correct: boolean };
-export type RoundInput = { direction: Direction; level: Level; answers: Answer[] };
+export type RoundInput = { direction: Direction; level: RoundLevel; answers: Answer[] };
+/** A word on the review list, with the level its word list belongs to. */
+export type ReviewPair = { en: string; fi: string; level: Level };
 
 /** Maps a question back to its word pair (prompt is in the "from" language). */
 export function toPair(question: Pick<Question, "prompt" | "correct">, direction: Direction): WordPair {
@@ -38,29 +44,34 @@ export function nextMissedState(row: MissedState | null, correct: boolean): Miss
   return { kind: "upsert", missCount: row.missCount, correctStreak };
 }
 
-const pairKey = (p: WordPair) => `${p.en}\u0000${p.fi}`;
-const levelKeys = new Map<Level, Set<string>>();
-function wordsOf(level: Level): Set<string> {
-  let keys = levelKeys.get(level);
-  if (!keys) {
-    keys = new Set(LEVELS[level].words.map(pairKey));
-    levelKeys.set(level, keys);
+const pairKey = (p: Pick<WordPair, "en" | "fi">) => `${p.en}\u0000${p.fi}`;
+
+// Every word belongs to exactly one list (data/data.test.ts checks this).
+let levelByPair: Map<string, Level> | null = null;
+
+/** The level a word pair belongs to, or null if it's in no current list. */
+export function levelOfPair(pair: Pick<WordPair, "en" | "fi">): Level | null {
+  if (!levelByPair) {
+    levelByPair = new Map();
+    for (const [level, { words }] of Object.entries(LEVELS) as [Level, { words: WordPair[] }][]) {
+      for (const w of words) levelByPair.set(pairKey(w), level);
+    }
   }
-  return keys;
+  return levelByPair.get(pairKey(pair)) ?? null;
 }
 
 /**
- * Validates untrusted saveRound input: a known direction and level, 1–10 answers,
- * each a distinct word from that level's list. Returns null if anything is off.
+ * Validates untrusted saveRound input: a known direction and level (or "review"),
+ * 1–10 answers, each a distinct word from that level's list (any list for a review
+ * round). Returns null if anything is off.
  */
 export function parseRoundInput(input: unknown): RoundInput | null {
   if (typeof input !== "object" || input === null) return null;
   const { direction, level, answers } = input as Record<string, unknown>;
   if (typeof direction !== "string" || !(DIRECTIONS as readonly string[]).includes(direction)) return null;
-  if (typeof level !== "string" || !Object.hasOwn(LEVELS, level)) return null;
+  if (typeof level !== "string" || (level !== REVIEW && !Object.hasOwn(LEVELS, level))) return null;
   if (!Array.isArray(answers) || answers.length === 0 || answers.length > MAX_ANSWERS) return null;
 
-  const known = wordsOf(level as Level);
   const seen = new Set<string>();
   const parsed: Answer[] = [];
   for (const a of answers) {
@@ -68,9 +79,10 @@ export function parseRoundInput(input: unknown): RoundInput | null {
     const { en, fi, correct } = a as Record<string, unknown>;
     if (typeof en !== "string" || typeof fi !== "string" || typeof correct !== "boolean") return null;
     const key = pairKey({ en, fi });
-    if (!known.has(key) || seen.has(key)) return null;
+    const wordLevel = levelOfPair({ en, fi });
+    if (!wordLevel || (level !== REVIEW && wordLevel !== level) || seen.has(key)) return null;
     seen.add(key);
     parsed.push({ en, fi, correct });
   }
-  return { direction: direction as Direction, level: level as Level, answers: parsed };
+  return { direction: direction as Direction, level: level as RoundLevel, answers: parsed };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { saveRound } from "@/app/actions/progress";
+import { getReviewWords, saveRound } from "@/app/actions/progress";
 import { authClient } from "@/lib/auth-client";
 import {
   DIFFICULTIES,
@@ -16,8 +16,8 @@ import {
   type Difficulty,
   type Topic,
 } from "@/lib/levels";
-import { toPair, type Answer } from "@/lib/progress";
-import { buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
+import { REVIEW, toPair, type Answer, type ReviewPair } from "@/lib/progress";
+import { buildReviewRound, buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
 import { BEFORE_SIGN_IN_EVENT, stashRound, takeStashedRound, type Miss } from "@/lib/resume";
 import { STRINGS, uiLangFor } from "@/lib/strings";
 import { primaryBtn, secondaryBtn, textLink, toggleBase, toggleOff, toggleOn } from "./styles";
@@ -37,6 +37,9 @@ export default function Quiz({ direction }: { direction: Direction }) {
   const [score, setScore] = useState(0);
   const [missed, setMissed] = useState<Miss[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  // A review round asks the user's missed words instead of a word list.
+  const [reviewing, setReviewing] = useState(false);
+  const [reviewPairs, setReviewPairs] = useState<ReviewPair[]>([]);
   // Whether this round's result has been sent to saveRound (once per round).
   const recorded = useRef(false);
   const { data: session } = authClient.useSession();
@@ -51,9 +54,27 @@ export default function Quiz({ direction }: { direction: Direction }) {
   const ui = uiLangFor(direction);
   const t = STRINGS[ui];
   const level = levelFor(difficulty, topic);
+  const roundLevel = reviewing ? REVIEW : level;
+  const userId = session?.user.id;
+  // Shown only to signed-in users; a guest's list stays empty.
+  const reviewCount = userId ? reviewPairs.length : 0;
 
   function start() {
-    setQuestions(buildRound(LEVELS[level].words, direction, ROUND_LENGTH));
+    beginRound(buildRound(LEVELS[level].words, direction, ROUND_LENGTH), false);
+  }
+
+  function startReview() {
+    const round = buildReviewRound(reviewPairs, direction, ROUND_LENGTH, (l) => LEVELS[l].words);
+    if (round.length === 0) return;
+    beginRound(round, true);
+  }
+
+  function beginRound(round: Question[], review: boolean) {
+    setQuestions(round);
+    setReviewing(review);
+    // The list changes with this round's answers; "Play again" waits for the
+    // refreshed list (fetched after saving) instead of reusing the old one.
+    if (review) setReviewPairs([]);
     setIndex(0);
     setSelected(null);
     setScore(0);
@@ -103,7 +124,8 @@ export default function Quiz({ direction }: { direction: Direction }) {
 
   // Signing in leaves the page: save a round in progress (or its result) first.
   const onBeforeSignIn = useEffectEvent(() => {
-    if (screen === "start") return;
+    // Review rounds need an account, so there's nothing to keep for a guest.
+    if (screen === "start" || reviewing) return;
     stashRound({
       direction,
       screen,
@@ -139,8 +161,23 @@ export default function Quiz({ direction }: { direction: Direction }) {
     setMissed(saved.missed);
     setAnswers(saved.answers);
     recorded.current = saved.recorded;
+    setReviewing(false);
     setScreen(saved.screen);
   }, [direction]);
+
+  // Load the signed-in user's review list on the start screen.
+  useEffect(() => {
+    if (!userId || screen !== "start") return;
+    let cancelled = false;
+    getReviewWords(direction)
+      .then((pairs) => {
+        if (!cancelled) setReviewPairs(pairs);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, screen, direction]);
 
   // Save a finished round for a signed-in user, once. This also covers a guest who
   // finishes and then signs in from the result screen. Failures are ignored: the
@@ -148,8 +185,12 @@ export default function Quiz({ direction }: { direction: Direction }) {
   useEffect(() => {
     if (screen !== "result" || !session || recorded.current || answers.length === 0) return;
     recorded.current = true;
-    saveRound({ direction, level, answers }).catch(() => {});
-  }, [screen, session, direction, level, answers]);
+    saveRound({ direction, level: roundLevel, answers })
+      // Refresh the review list so "Play again" in review mode uses the new one.
+      .then(() => getReviewWords(direction))
+      .then(setReviewPairs)
+      .catch(() => {});
+  }, [screen, session, direction, roundLevel, answers]);
 
   // Move focus to the new screen's heading or word (not on first page load).
   useEffect(() => {
@@ -236,6 +277,11 @@ export default function Quiz({ direction }: { direction: Direction }) {
           <button type="button" onClick={start} className={primaryBtn}>
             {t.start}
           </button>
+          {reviewCount > 0 && (
+            <button type="button" onClick={startReview} className={secondaryBtn}>
+              {t.review} ({reviewCount})
+            </button>
+          )}
         </div>
       </section>
     );
@@ -294,9 +340,16 @@ export default function Quiz({ direction }: { direction: Direction }) {
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-          <button type="button" onClick={start} className={primaryBtn}>
-            {t.playAgain}
-          </button>
+          {/* After a review round, play again only while words are left to review. */}
+          {(!reviewing || reviewCount > 0) && (
+            <button
+              type="button"
+              onClick={reviewing ? startReview : start}
+              className={primaryBtn}
+            >
+              {t.playAgain}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setScreen("start")}
@@ -318,7 +371,7 @@ export default function Quiz({ direction }: { direction: Direction }) {
       <div>
         <div className="mb-2 flex items-center justify-between gap-4 text-sm text-slate-600 dark:text-slate-400">
           <span>
-            {index + 1} / {questions.length} · {LEVELS[level].label[ui]}
+            {index + 1} / {questions.length} · {reviewing ? t.reviewRound : LEVELS[level].label[ui]}
           </span>
           <button
             type="button"

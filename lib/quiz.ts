@@ -81,3 +81,24 @@ export function buildRound(
   const indices = shuffle(words.map((_, i) => i)).slice(0, count);
   return indices.map((i) => makeQuestion(words, i, direction));
 }
+
+/**
+ * Builds a review round from missed words: up to `count` of them, in random order.
+ * Each word's wrong options come from its own level's list (via makeQuestion), so
+ * even a short review list gets proper distractors. Words not found are skipped.
+ */
+export function buildReviewRound<L extends string>(
+  pairs: readonly { en: string; fi: string; level: L }[],
+  direction: Direction,
+  count: number,
+  wordsFor: (level: L) => readonly WordPair[],
+): Question[] {
+  const questions: Question[] = [];
+  for (const pair of shuffle(pairs)) {
+    if (questions.length >= count) break;
+    const words = wordsFor(pair.level);
+    const index = words.findIndex((w) => w.en === pair.en && w.fi === pair.fi);
+    if (index >= 0) questions.push(makeQuestion(words, index, direction));
+  }
+  return questions;
+}

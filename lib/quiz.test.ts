@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRound, isDirection, makeQuestion, shuffle, type WordPair } from "./quiz";
+import { buildReviewRound, buildRound, isDirection, makeQuestion, shuffle, type WordPair } from "./quiz";
 
 const words: WordPair[] = Array.from({ length: 20 }, (_, i) => ({
   en: `en${i}`,
@@ -177,5 +177,40 @@ describe("makeQuestion with fields", () => {
     expect(q.options).toHaveLength(4);
     expect(q.options).toContain("b1");
     expect(q.options.filter((o) => o.startsWith("m"))).toHaveLength(2);
+  });
+});
+
+describe("buildReviewRound", () => {
+  const listA: WordPair[] = Array.from({ length: 10 }, (_, i) => ({ en: `a${i}`, fi: `afi${i}` }));
+  const listB: WordPair[] = Array.from({ length: 10 }, (_, i) => ({ en: `b${i}`, fi: `bfi${i}` }));
+  const wordsFor = (level: "A" | "B") => (level === "A" ? listA : listB);
+
+  it("asks each missed word once, with wrong options from its own list", () => {
+    const pairs = [
+      { en: "a1", fi: "afi1", level: "A" as const },
+      { en: "b2", fi: "bfi2", level: "B" as const },
+    ];
+    const round = buildReviewRound(pairs, "en-fi", 10, wordsFor);
+    expect(round).toHaveLength(2);
+    const qa = round.find((q) => q.prompt === "a1")!;
+    const qb = round.find((q) => q.prompt === "b2")!;
+    expect(qa.correct).toBe("afi1");
+    expect(qa.options).toHaveLength(4);
+    expect(qa.options.every((o) => o.startsWith("afi"))).toBe(true);
+    expect(qb.options.every((o) => o.startsWith("bfi"))).toBe(true);
+  });
+
+  it("caps the round length", () => {
+    const pairs = listA.map((w) => ({ ...w, level: "A" as const }));
+    expect(buildReviewRound(pairs, "fi-en", 4, wordsFor)).toHaveLength(4);
+  });
+
+  it("skips words that are no longer in their list", () => {
+    const pairs = [
+      { en: "gone", fi: "poissa", level: "A" as const },
+      { en: "a3", fi: "afi3", level: "A" as const },
+    ];
+    const round = buildReviewRound(pairs, "en-fi", 10, wordsFor);
+    expect(round.map((q) => q.prompt)).toEqual(["a3"]);
   });
 });

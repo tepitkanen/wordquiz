@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LEVELS } from "./levels";
-import { nextMissedState, parseRoundInput, toPair } from "./progress";
+import { levelOfPair, nextMissedState, parseRoundInput, toPair } from "./progress";
 
 describe("toPair", () => {
   it("maps a question back to its en/fi pair in both directions", () => {
@@ -74,6 +74,34 @@ describe("parseRoundInput", () => {
     ["correct not a boolean", { ...valid, answers: [{ ...w0, correct: "yes" }] }],
     ["answer not an object", { ...valid, answers: [null] }],
   ])("rejects %s", (_, input) => {
+    expect(parseRoundInput(input)).toBeNull();
+  });
+});
+
+describe("review rounds", () => {
+  const easyWord = LEVELS.easy.words[0];
+  const foodWord = LEVELS["food-hard"].words[0];
+
+  it("finds the level a word belongs to", () => {
+    expect(levelOfPair(easyWord)).toBe("easy");
+    expect(levelOfPair(foodWord)).toBe("food-hard");
+    expect(levelOfPair({ en: "dog", fi: "kissa" })).toBeNull();
+  });
+
+  it("accepts words from different levels in a review round", () => {
+    const input = {
+      direction: "fi-en",
+      level: "review",
+      answers: [
+        { ...easyWord, correct: true },
+        { ...foodWord, correct: false },
+      ],
+    };
+    expect(parseRoundInput(input)).toEqual(input);
+  });
+
+  it("still rejects unknown words in a review round", () => {
+    const input = { direction: "fi-en", level: "review", answers: [{ en: "dog", fi: "kissa", correct: true }] };
     expect(parseRoundInput(input)).toBeNull();
   });
 });

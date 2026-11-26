@@ -2,14 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/app/actions/progress", () => ({ saveRound: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/app/actions/progress", () => ({
+  saveRound: vi.fn(() => Promise.resolve()),
+  getReviewWords: vi.fn(() => Promise.resolve([])),
+}));
 vi.mock("@/lib/auth-client", () => ({ authClient: { useSession: vi.fn() } }));
 vi.mock("@/lib/quiz", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/quiz")>();
   return { ...actual, buildRound: vi.fn() };
 });
 
-import { saveRound } from "@/app/actions/progress";
+import { getReviewWords, saveRound } from "@/app/actions/progress";
+import { LEVELS } from "@/lib/levels";
 import { authClient } from "@/lib/auth-client";
 import { buildRound, type Direction } from "@/lib/quiz";
 import { BEFORE_SIGN_IN_EVENT } from "@/lib/resume";
@@ -27,6 +31,7 @@ function fixedRound() {
 const mockedBuild = vi.mocked(buildRound);
 
 const mockedSave = vi.mocked(saveRound);
+const mockedReview = vi.mocked(getReviewWords);
 function setSignedIn(signedIn: boolean) {
   vi.mocked(authClient.useSession).mockReturnValue({
     data: signedIn ? { user: { id: "u1", name: "Maija" } } : null,
@@ -38,6 +43,8 @@ beforeEach(() => {
   mockedBuild.mockReset();
   mockedBuild.mockImplementation(() => fixedRound());
   mockedSave.mockClear();
+  mockedReview.mockReset();
+  mockedReview.mockResolvedValue([]);
   setSignedIn(false);
 });
 
@@ -475,5 +482,106 @@ describe("saving progress", () => {
     render(<Quiz direction="en-fi" />);
     expect(screen.getByText("10 / 10")).toBeInTheDocument();
     expect(mockedSave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("review mode", () => {
+  // Real words, so buildReviewRound finds them in their lists.
+  const w1 = LEVELS.easy.words[0];
+  const w2 = LEVELS["food-hard"].words[0];
+  const pairs = [
+    { en: w1.en, fi: w1.fi, level: "easy" as const },
+    { en: w2.en, fi: w2.fi, level: "food-hard" as const },
+  ];
+  const reviewButton = () => screen.queryByRole("button", { name: /Review missed words/ });
+
+  it("shows no review button to guests and doesn't ask the server", async () => {
+    mockedReview.mockResolvedValue(pairs);
+    render(<Quiz direction="en-fi" />);
+    await screen.findByRole("button", { name: /Start/ });
+    expect(reviewButton()).toBeNull();
+    expect(mockedReview).not.toHaveBeenCalled();
+  });
+
+  it("shows no review button when the list is empty", async () => {
+    setSignedIn(true);
+    render(<Quiz direction="en-fi" />);
+    await vi.waitFor(() => expect(mockedReview).toHaveBeenCalledWith("en-fi"));
+    expect(reviewButton()).toBeNull();
+  });
+
+  it("shows the count and plays a review round of the missed words", async () => {
+    setSignedIn(true);
+    mockedReview.mockResolvedValue(pairs);
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    const button = await screen.findByRole("button", { name: "Review missed words (2)" });
+    await user.click(button);
+
+    expect(screen.getByText("1 / 2 · Review")).toBeInTheDocument();
+    const prompts: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      const prompt = screen.getByRole("heading", { level: 1 }).textContent!;
+      prompts.push(prompt);
+      const correct = pairs.find((p) => p.en === prompt)!.fi;
+      await user.click(screen.getByRole("button", { name: correct }));
+      await user.click(screen.getByRole("button", { name: i === 1 ? /Results/ : /Next/ }));
+    }
+    expect(prompts.sort()).toEqual([w1.en, w2.en].sort());
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(mockedSave).toHaveBeenCalledWith({
+      direction: "en-fi",
+      level: "review",
+      answers: expect.arrayContaining([
+        { en: w1.en, fi: w1.fi, correct: true },
+        { en: w2.en, fi: w2.fi, correct: true },
+      ]),
+    });
+  });
+
+  it("hides Play again after a review round once the list is empty", async () => {
+    setSignedIn(true);
+    mockedReview.mockResolvedValueOnce(pairs.slice(0, 1)).mockResolvedValue([]);
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(await screen.findByRole("button", { name: "Review missed words (1)" }));
+    await user.click(screen.getByRole("button", { name: w1.fi }));
+    await user.click(screen.getByRole("button", { name: /Results/ }));
+    await vi.waitFor(() => expect(screen.queryByRole("button", { name: /Play again/ })).toBeNull());
+    expect(screen.getByRole("button", { name: /Change settings/ })).toBeInTheDocument();
+  });
+
+  it("labels the button in Finnish for fi-en", async () => {
+    setSignedIn(true);
+    mockedReview.mockResolvedValue(pairs);
+    render(<Quiz direction="fi-en" />);
+    expect(await screen.findByRole("button", { name: "Kertaa virheet (2)" })).toBeInTheDocument();
+  });
+});
+
+describe("review mode, Play again", () => {
+  it("offers Play again only after the refreshed list arrives", async () => {
+    setSignedIn(true);
+    const w1 = LEVELS.easy.words[0];
+    const w2 = LEVELS.easy.words[1];
+    const both = [
+      { en: w1.en, fi: w1.fi, level: "easy" as const },
+      { en: w2.en, fi: w2.fi, level: "easy" as const },
+    ];
+    let releaseRefresh!: () => void;
+    mockedReview
+      .mockResolvedValueOnce(both)
+      .mockImplementationOnce(() => new Promise((r) => (releaseRefresh = () => r(both.slice(1)))));
+    const user = userEvent.setup();
+    render(<Quiz direction="en-fi" />);
+    await user.click(await screen.findByRole("button", { name: "Review missed words (2)" }));
+    for (let i = 0; i < 2; i++) {
+      const prompt = screen.getByRole("heading", { level: 1 }).textContent!;
+      await user.click(screen.getByRole("button", { name: both.find((p) => p.en === prompt)!.fi }));
+      await user.click(screen.getByRole("button", { name: i === 1 ? /Results/ : /Next/ }));
+    }
+    expect(screen.queryByRole("button", { name: /Play again/ })).toBeNull();
+    await act(async () => releaseRefresh());
+    expect(screen.getByRole("button", { name: /Play again/ })).toBeInTheDocument();
   });
 });

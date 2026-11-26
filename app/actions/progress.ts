@@ -6,7 +6,13 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { missedWord, round } from "@/lib/db/schema";
-import { nextMissedState, parseRoundInput } from "@/lib/progress";
+import {
+  levelOfPair,
+  nextMissedState,
+  parseRoundInput,
+  type ReviewPair,
+} from "@/lib/progress";
+import { isDirection } from "@/lib/quiz";
 
 /**
  * Saves a finished round for the signed-in user and updates their review list.
@@ -45,8 +51,9 @@ export async function saveRound(input: unknown): Promise<void> {
     );
     if (update.kind === "delete") return [db.delete(missedWord).where(key)];
     if (update.kind === "upsert") {
+      // parseRoundInput guarantees the word is in a current list.
       const set = {
-        level,
+        level: levelOfPair({ en, fi })!,
         missCount: update.missCount,
         correctStreak: update.correctStreak,
         ...(correct ? {} : { lastMissedAt: new Date() }),
@@ -75,4 +82,25 @@ export async function saveRound(input: unknown): Promise<void> {
     }),
     ...writes,
   ]);
+}
+
+/**
+ * The signed-in user's review list for one direction, oldest miss first.
+ * Words no longer in any word list are left out. Guests get an empty list.
+ */
+export async function getReviewWords(direction: unknown): Promise<ReviewPair[]> {
+  if (typeof direction !== "string" || !isDirection(direction)) return [];
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return [];
+
+  const rows = await db
+    .select({ en: missedWord.en, fi: missedWord.fi })
+    .from(missedWord)
+    .where(and(eq(missedWord.userId, session.user.id), eq(missedWord.direction, direction)))
+    .orderBy(missedWord.lastMissedAt);
+
+  return rows.flatMap(({ en, fi }) => {
+    const level = levelOfPair({ en, fi });
+    return level ? [{ en, fi, level }] : [];
+  });
 }

@@ -16,6 +16,8 @@ type Strings = {
   noTopic: string;
   wordList: string;
   field: string;
+  review: string;
+  reviewRound: string;
   start: string;
   quit: string;
   progress: string;
@@ -39,6 +41,8 @@ export const STRINGS: Record<UiLang, Strings> = {
     noTopic: "Ei aihetta",
     wordList: "Sanasto",
     field: "Ala",
+    review: "Kertaa virheet",
+    reviewRound: "Kertaus",
     start: "Aloita",
     quit: "Lopeta",
     progress: "Edistyminen",
@@ -60,6 +64,8 @@ export const STRINGS: Record<UiLang, Strings> = {
     noTopic: "None",
     wordList: "Words",
     field: "Field",
+    review: "Review missed words",
+    reviewRound: "Review",
     start: "Start",
     quit: "Quit",
     progress: "Progress",
