@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/lib/quiz", async (importOriginal) => {
@@ -8,6 +8,7 @@ vi.mock("@/lib/quiz", async (importOriginal) => {
 });
 
 import { buildRound, type Direction } from "@/lib/quiz";
+import { BEFORE_SIGN_IN_EVENT } from "@/lib/resume";
 import Quiz from "./Quiz";
 
 // Question i: prompt "p{i}", fixed option order, correct answer is option 1.
@@ -269,5 +270,51 @@ describe("result screen", () => {
     await user.click(screen.getByRole("button", { name: /Change settings/ }));
     expect(screen.getByRole("button", { name: /Start/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Easy" })).toBeInTheDocument();
+  });
+});
+
+describe("continuing a round after signing in", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  const signIn = () => act(() => window.dispatchEvent(new Event(BEFORE_SIGN_IN_EVENT)));
+
+  it("restores the round saved before sign-in, once", async () => {
+    const user = await startQuiz();
+    await user.keyboard("2"); // wrong on p0
+    await user.click(screen.getByRole("button", { name: /Next/ }));
+    await user.keyboard("1"); // right on p1, left unanswered-next
+    signIn();
+    cleanup();
+
+    // Back from Google: the page loads again.
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByText(/^2 \/ 10/)).toBeInTheDocument();
+    expect(optionBtn("c1")).toBeDisabled(); // already answered
+    await user.click(screen.getByRole("button", { name: /Next/ }));
+    for (let i = 2; i < 10; i++) {
+      await user.keyboard("1");
+      await user.click(screen.getByRole("button", { name: i === 9 ? /Results/ : /Next/ }));
+    }
+    expect(screen.getByText("9 / 10")).toBeInTheDocument();
+    expect(screen.getByText("p0")).toBeInTheDocument();
+
+    // Used once: another load starts fresh.
+    cleanup();
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByRole("button", { name: /Start/ })).toBeInTheDocument();
+  });
+
+  it("saves nothing from the start screen", () => {
+    render(<Quiz direction="en-fi" />);
+    signIn();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("ignores a round saved for the other direction", async () => {
+    await startQuiz("en-fi");
+    signIn();
+    cleanup();
+    render(<Quiz direction="fi-en" />);
+    expect(screen.getByRole("button", { name: "Aloita" })).toBeInTheDocument();
   });
 });

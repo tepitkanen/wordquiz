@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { authClient } from "@/lib/auth-client";
+import { BEFORE_SIGN_IN_EVENT } from "@/lib/resume";
 import { AccountMenu } from "./AccountMenu";
 
 vi.mock("@/lib/auth-client", () => ({
@@ -32,8 +33,17 @@ describe("AccountMenu", () => {
   it("signs in with Google when signed out", async () => {
     const user = userEvent.setup();
     mockSession(null);
+    const order: string[] = [];
+    const onBefore = () => order.push("event");
+    window.addEventListener(BEFORE_SIGN_IN_EVENT, onBefore);
+    vi.mocked(authClient.signIn.social).mockImplementation((() => {
+      order.push("signIn");
+    }) as never);
     render(<AccountMenu />);
     await user.click(screen.getByRole("button", { name: "Kirjaudu / Sign in" }));
+    window.removeEventListener(BEFORE_SIGN_IN_EVENT, onBefore);
+    // The quiz gets a chance to save its round before the page leaves for Google.
+    expect(order).toEqual(["event", "signIn"]);
     expect(authClient.signIn.social).toHaveBeenCalledWith({
       provider: "google",
       callbackURL: "/",

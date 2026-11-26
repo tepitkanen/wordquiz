@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { BEFORE_SIGN_IN_EVENT } from "@/lib/resume";
 import { Bi } from "./Bi";
 
 const smallBtn =
@@ -55,12 +56,14 @@ export function AccountMenu() {
         ref={signInRef}
         type="button"
         className={smallBtn}
-        onClick={() =>
+        onClick={() => {
+          // Lets an open quiz save its round so it can continue after sign-in.
+          window.dispatchEvent(new Event(BEFORE_SIGN_IN_EVENT));
           authClient.signIn.social({
             provider: "google",
             callbackURL: window.location.pathname,
-          })
-        }
+          });
+        }}
       >
         <Bi fi="Kirjaudu" en="Sign in" />
       </button>

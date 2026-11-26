@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { LEVELS, LEVEL_ORDER, SPECIAL_LEVELS, type Level } from "@/lib/levels";
 import { buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
+import { BEFORE_SIGN_IN_EVENT, saveRound, takeSavedRound, type Miss } from "@/lib/resume";
 import { STRINGS, uiLangFor } from "@/lib/strings";
 import { primaryBtn, secondaryBtn, textLink, toggleBase, toggleOff, toggleOn } from "./styles";
 
 const ROUND_LENGTH = 10;
 
-type Miss = { prompt: string; chosen: string; correct: string };
 type Screen = "start" | "quiz" | "result";
 
 export default function Quiz({ direction }: { direction: Direction }) {
@@ -75,6 +75,32 @@ export default function Quiz({ direction }: { direction: Direction }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Signing in leaves the page: save a round in progress (or its result) first.
+  const onBeforeSignIn = useEffectEvent(() => {
+    if (screen === "start") return;
+    saveRound({ direction, screen, level, questions, index, selected, score, missed });
+  });
+  useEffect(() => {
+    window.addEventListener(BEFORE_SIGN_IN_EVENT, onBeforeSignIn);
+    return () => window.removeEventListener(BEFORE_SIGN_IN_EVENT, onBeforeSignIn);
+  }, []);
+
+  // Back from signing in: continue the saved round, once.
+  useEffect(() => {
+    const saved = takeSavedRound(direction);
+    if (!saved) return;
+    // sessionStorage exists only in the browser, so this can't happen during the
+    // prerender or in a useState initializer (hydration would mismatch). Runs once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLevel(saved.level);
+    setQuestions(saved.questions);
+    setIndex(saved.index);
+    setSelected(saved.selected);
+    setScore(saved.score);
+    setMissed(saved.missed);
+    setScreen(saved.screen);
+  }, [direction]);
 
   // Move focus to the new screen's heading or word (not on first page load).
   useEffect(() => {
