@@ -68,6 +68,7 @@ app/
   Quiz.tsx                  Quiz UI: level, question and result screens
   SchemePicker.tsx          Colour scheme dropdown
   AccountMenu.tsx           Sign-in button / signed-in user menu
+  actions/progress.ts       Server action: save a round and update missed words
   api/auth/[...all]/route.ts Better Auth endpoints
   Logo.tsx, icon.svg        Logo and favicon
   styles.ts                 Shared button and link styles
@@ -83,6 +84,8 @@ lib/
   quiz.ts         Directions, shuffling and question/round generation
   strings.ts      Quiz interface text in Finnish and English
   schemes.ts      Colour schemes
+  progress.ts     Review-list rules and saveRound input validation
+  resume.ts       Keeps an unfinished round across the Google sign-in redirect
   auth.ts         Better Auth server config (Google provider)
   auth-client.ts  Better Auth React client
   db/             Drizzle client and schema

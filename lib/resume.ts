@@ -1,4 +1,5 @@
 import { LEVELS, type Level } from "./levels";
+import type { Answer } from "./progress";
 import type { Direction, Question } from "./quiz";
 
 // Signing in leaves the page for Google. Just before that, AccountMenu fires
@@ -18,9 +19,12 @@ export type SavedRound = {
   selected: string | null;
   score: number;
   missed: Miss[];
+  answers: Answer[];
+  /** True once the finished round was sent to saveRound, so it isn't saved twice. */
+  recorded: boolean;
 };
 
-export function saveRound(round: SavedRound) {
+export function stashRound(round: SavedRound) {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(round));
   } catch {
@@ -29,7 +33,7 @@ export function saveRound(round: SavedRound) {
 }
 
 /** Returns the saved round for this direction, if any, and removes it so it's used once. */
-export function takeSavedRound(direction: Direction): SavedRound | null {
+export function takeStashedRound(direction: Direction): SavedRound | null {
   let raw: string | null = null;
   try {
     raw = sessionStorage.getItem(STORAGE_KEY);
@@ -50,7 +54,9 @@ export function takeSavedRound(direction: Direction): SavedRound | null {
       r.index >= 0 &&
       r.index < r.questions.length &&
       Number.isInteger(r.score) &&
-      Array.isArray(r.missed);
+      Array.isArray(r.missed) &&
+      Array.isArray(r.answers) &&
+      typeof r.recorded === "boolean";
     return valid ? r : null;
   } catch {
     return null;

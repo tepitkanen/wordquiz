@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { LEVELS, LEVEL_ORDER, SPECIAL_LEVELS, type Level } from "@/lib/levels";
+import { saveRound } from "@/app/actions/progress";
+import { authClient } from "@/lib/auth-client";
+import { toPair, type Answer } from "@/lib/progress";
 import { buildRound, DIRECTION_LABELS, type Direction, type Question } from "@/lib/quiz";
-import { BEFORE_SIGN_IN_EVENT, saveRound, takeSavedRound, type Miss } from "@/lib/resume";
+import { BEFORE_SIGN_IN_EVENT, stashRound, takeStashedRound, type Miss } from "@/lib/resume";
 import { STRINGS, uiLangFor } from "@/lib/strings";
 import { primaryBtn, secondaryBtn, textLink, toggleBase, toggleOff, toggleOn } from "./styles";
 
@@ -20,6 +23,10 @@ export default function Quiz({ direction }: { direction: Direction }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [missed, setMissed] = useState<Miss[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  // Whether this round's result has been sent to saveRound (once per round).
+  const recorded = useRef(false);
+  const { data: session } = authClient.useSession();
   const nextRef = useRef<HTMLButtonElement>(null);
   // Receives focus when the screen or question changes, so keyboard users keep their place.
   const focusRef = useRef<HTMLHeadingElement>(null);
@@ -37,13 +44,17 @@ export default function Quiz({ direction }: { direction: Direction }) {
     setSelected(null);
     setScore(0);
     setMissed([]);
+    setAnswers([]);
+    recorded.current = false;
     setScreen("quiz");
   }
 
   function answer(option: string) {
     if (selected !== null || !question) return;
     setSelected(option);
-    if (option === question.correct) {
+    const correct = option === question.correct;
+    setAnswers((a) => [...a, { ...toPair(question, direction), correct }]);
+    if (correct) {
       setScore((s) => s + 1);
     } else {
       setMissed((m) => [
@@ -79,7 +90,18 @@ export default function Quiz({ direction }: { direction: Direction }) {
   // Signing in leaves the page: save a round in progress (or its result) first.
   const onBeforeSignIn = useEffectEvent(() => {
     if (screen === "start") return;
-    saveRound({ direction, screen, level, questions, index, selected, score, missed });
+    stashRound({
+      direction,
+      screen,
+      level,
+      questions,
+      index,
+      selected,
+      score,
+      missed,
+      answers,
+      recorded: recorded.current,
+    });
   });
   useEffect(() => {
     window.addEventListener(BEFORE_SIGN_IN_EVENT, onBeforeSignIn);
@@ -88,7 +110,7 @@ export default function Quiz({ direction }: { direction: Direction }) {
 
   // Back from signing in: continue the saved round, once.
   useEffect(() => {
-    const saved = takeSavedRound(direction);
+    const saved = takeStashedRound(direction);
     if (!saved) return;
     // sessionStorage exists only in the browser, so this can't happen during the
     // prerender or in a useState initializer (hydration would mismatch). Runs once.
@@ -99,8 +121,19 @@ export default function Quiz({ direction }: { direction: Direction }) {
     setSelected(saved.selected);
     setScore(saved.score);
     setMissed(saved.missed);
+    setAnswers(saved.answers);
+    recorded.current = saved.recorded;
     setScreen(saved.screen);
   }, [direction]);
+
+  // Save a finished round for a signed-in user, once. This also covers a guest who
+  // finishes and then signs in from the result screen. Failures are ignored: the
+  // quiz works the same without saved progress.
+  useEffect(() => {
+    if (screen !== "result" || !session || recorded.current || answers.length === 0) return;
+    recorded.current = true;
+    saveRound({ direction, level, answers }).catch(() => {});
+  }, [screen, session, direction, level, answers]);
 
   // Move focus to the new screen's heading or word (not on first page load).
   useEffect(() => {

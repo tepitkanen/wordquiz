@@ -2,11 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+vi.mock("@/app/actions/progress", () => ({ saveRound: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/lib/auth-client", () => ({ authClient: { useSession: vi.fn() } }));
 vi.mock("@/lib/quiz", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/quiz")>();
   return { ...actual, buildRound: vi.fn() };
 });
 
+import { saveRound } from "@/app/actions/progress";
+import { authClient } from "@/lib/auth-client";
 import { buildRound, type Direction } from "@/lib/quiz";
 import { BEFORE_SIGN_IN_EVENT } from "@/lib/resume";
 import Quiz from "./Quiz";
@@ -22,9 +26,19 @@ function fixedRound() {
 
 const mockedBuild = vi.mocked(buildRound);
 
+const mockedSave = vi.mocked(saveRound);
+function setSignedIn(signedIn: boolean) {
+  vi.mocked(authClient.useSession).mockReturnValue({
+    data: signedIn ? { user: { id: "u1", name: "Maija" } } : null,
+    isPending: false,
+  } as unknown as ReturnType<typeof authClient.useSession>);
+}
+
 beforeEach(() => {
   mockedBuild.mockReset();
   mockedBuild.mockImplementation(() => fixedRound());
+  mockedSave.mockClear();
+  setSignedIn(false);
 });
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -316,5 +330,80 @@ describe("continuing a round after signing in", () => {
     cleanup();
     render(<Quiz direction="fi-en" />);
     expect(screen.getByRole("button", { name: "Aloita" })).toBeInTheDocument();
+  });
+});
+
+describe("saving progress", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  // en-fi: prompt p{i} is the English word, c{i} the Finnish one.
+  const expectedAnswers = (wrongAt: number[]) =>
+    Array.from({ length: 10 }, (_, i) => ({ en: `p${i}`, fi: `c${i}`, correct: !wrongAt.includes(i) }));
+
+  it("saves the finished round once for a signed-in user", async () => {
+    setSignedIn(true);
+    const user = await startQuiz();
+    await playRound(user, [3, 7]);
+    expect(mockedSave).toHaveBeenCalledTimes(1);
+    expect(mockedSave).toHaveBeenCalledWith({
+      direction: "en-fi",
+      level: "easy",
+      answers: expectedAnswers([3, 7]),
+    });
+  });
+
+  it("saves each round of Play again separately", async () => {
+    setSignedIn(true);
+    const user = await startQuiz();
+    await playRound(user, [0]);
+    await user.click(screen.getByRole("button", { name: /Play again/ }));
+    await playRound(user, []);
+    expect(mockedSave).toHaveBeenCalledTimes(2);
+    expect(mockedSave.mock.calls[1][0]).toMatchObject({ answers: expectedAnswers([]) });
+  });
+
+  it("saves nothing for a guest", async () => {
+    const user = await startQuiz();
+    await playRound(user, [1]);
+    expect(screen.getByText("9 / 10")).toBeInTheDocument();
+    expect(mockedSave).not.toHaveBeenCalled();
+  });
+
+  it("keeps working when saving fails", async () => {
+    setSignedIn(true);
+    mockedSave.mockRejectedValueOnce(new Error("offline"));
+    const user = await startQuiz();
+    await playRound(user, []);
+    expect(screen.getByText("10 / 10")).toBeInTheDocument();
+  });
+
+  it("saves a guest's result after they sign in from the result screen", async () => {
+    const user = await startQuiz();
+    await playRound(user, [5]);
+    act(() => window.dispatchEvent(new Event(BEFORE_SIGN_IN_EVENT)));
+    cleanup();
+
+    setSignedIn(true);
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByText("9 / 10")).toBeInTheDocument();
+    expect(mockedSave).toHaveBeenCalledTimes(1);
+    expect(mockedSave).toHaveBeenCalledWith({
+      direction: "en-fi",
+      level: "easy",
+      answers: expectedAnswers([5]),
+    });
+  });
+
+  it("doesn't save a restored result twice", async () => {
+    setSignedIn(true);
+    const user = await startQuiz();
+    await playRound(user, []);
+    expect(mockedSave).toHaveBeenCalledTimes(1);
+    act(() => window.dispatchEvent(new Event(BEFORE_SIGN_IN_EVENT)));
+    cleanup();
+
+    render(<Quiz direction="en-fi" />);
+    expect(screen.getByText("10 / 10")).toBeInTheDocument();
+    expect(mockedSave).toHaveBeenCalledTimes(1);
   });
 });
